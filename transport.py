@@ -1,6 +1,6 @@
+import sys
 
-
-class transport():
+class transport:
     def __init__(self) -> None:
         pass
 
@@ -27,7 +27,8 @@ class stdio_transport(transport):
         super().__init__()
 
     def start(self) -> None:
-        pass
+        self.started = True
+        self.
 
     def close(self) -> None:
         pass
@@ -40,3 +41,5 @@ class stdio_transport(transport):
 
     def onclose(self) -> None:
         pass
+
+    def 
