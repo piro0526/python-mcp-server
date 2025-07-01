@@ -2,12 +2,13 @@ from protocol import Protocol
 
 class Server(Protocol):
     def __init__(self, server_info, options):
-        self.capabilities = options.get('server_capabilities', {})
+        super().__init__()
+        self.capabilities = options.get('capabilities', {})
         self.instructions = options.get('instructions', '')
         self.server_info = server_info
 
         self.set_request_handler('initialize', self.oninitialize)
-        self.set_notification_handler('notification/initialized', self.oninitialized)
+        self.set_notification_handler('notifications/initialized', self.oninitialized)
 
     async def oninitialize(self, request):
         params = request.params or {}

@@ -1,8 +1,13 @@
 import sys
+import json
+import asyncio
+from typing import Callable, Optional, Dict
 
 class transport:
     def __init__(self) -> None:
-        pass
+        self.onmessage: Optional[Callable] = None
+        self.onerror: Optional[Callable] = None
+        self.onclose: Optional[Callable] = None
 
     def start(self) -> None:
         pass
@@ -13,33 +18,66 @@ class transport:
     def close(self) -> None:
         pass
 
-    def onmessage(self, message) -> None:
-        pass
-
-    def onerror(self, error) -> None:
-        pass
-
-    def onclose(self) -> None:
-        pass
-
 class stdio_transport(transport):
     def __init__(self) -> None:
         super().__init__()
+        self.started = False
+        self.closed = False
+        self.onmessage: Optional[Callable] = None
+        self.onerror: Optional[Callable] = None
+        self.onclose: Optional[Callable] = None
 
     def start(self) -> None:
+        if self.started:
+            return
+        
         self.started = True
-        self.
+        # stdin からメッセージを非同期で読み取り開始
+        asyncio.create_task(self._read_messages())
+
+    async def _read_messages(self) -> None:
+        """標準入力からJSON-RPC メッセージを読み取る"""
+        try:
+            while not self.closed:
+                line = await asyncio.get_event_loop().run_in_executor(
+                    None, sys.stdin.readline
+                )
+                
+                if not line:  # EOF
+                    break
+                    
+                line = line.strip()
+                if not line:
+                    continue
+                
+                try:
+                    message = json.loads(line)
+                    if self.onmessage:
+                        await self.onmessage(message)  # awaitを追加
+                except json.JSONDecodeError as e:
+                    if self.onerror:
+                        self.onerror(f"JSON decode error: {e}")
+                        
+        except Exception as e:
+            if self.onerror:
+                self.onerror(f"Error reading messages: {e}")
+        finally:
+            if self.onclose:
+                self.onclose()
+
+    def send(self, message: Dict) -> None:
+        """メッセージを標準出力に送信"""
+        if self.closed:
+            return
+            
+        try:
+            json_message = json.dumps(message, ensure_ascii=False)
+            print(json_message, flush=True)
+        except Exception as e:
+            if self.onerror:
+                self.onerror(f"Error sending message: {e}")
 
     def close(self) -> None:
-        pass
-
-    def onmessage(self, message) -> None:
-        pass
-
-    def onerror(self, error) -> None:
-        pass
-
-    def onclose(self) -> None:
-        pass
-
-    def 
+        """トランスポートを閉じる"""
+        self.closed = True
+        self.started = False 

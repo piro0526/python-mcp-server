@@ -1,7 +1,7 @@
-from types import Error, Request, Response, Notification
+from mcp_types import Error, Request, Response, Notification
 
 class Protocol:
-    def __init__(self, name, version):
+    def __init__(self):
         # self.response_handlers = {}
         self.request_handlers = {}
         self.notification_handlers = {}
@@ -17,35 +17,72 @@ class Protocol:
     def onclose(self) -> None:
         pass
 
-    def onerror(self, error: Error) -> None:
+    async def onerror(self, error: Error) -> None:
         pass
 
-    def onmessage(self, message) -> None:
-        if isinstance(message, Response):
-            self.onresponse(message)
-        elif isinstance(message, Request):
-            self.onrequest(message)
-        elif isinstance(message, Notification):
-            self.onnotification(message)
-        else:
-            self.onerror(Error(f"Unknown message type: {type(message)}"))
+    async def onmessage(self, message) -> None:
+        # 辞書からPydanticモデルに変換
+        try:
+            if "id" in message and "method" in message:
+                request = Request(**message)
+                await self.onrequest(request)
+            elif "method" in message:
+                notification = Notification(**message)
+                await self.onnotification(notification)
+            elif "id" in message:
+                response = Response(**message)
+                await self.onresponse(response)
+            else:
+                await self.onerror(Error(code=-32600, message=f"Invalid message format: {message}"))
+        except Exception as e:
+            await self.onerror(Error(code=-32700, message=f"Parse error: {e}"))
 
-    def onresponse(self, response: Response) -> None:
+    async def onresponse(self, response: Response) -> None:
         pass
 
-    def onrequest(self, request: Request) -> None:
+    async def onrequest(self, request: Request) -> None:
         handler = self.request_handlers.get(request.method)
-        if handler:
-            handler(request)
-        else:
-            self.onerror(Error(f"No handler for request method: {request.method}"))
+        if not handler:
+            error_response = {
+                "jsonrpc": "2.0",
+                "id": request.id,
+                "error": {
+                    "code": -32601,
+                    "message": f"Method not found: {request.method}"
+                }
+            }
+            self.transport.send(error_response)
+            return
 
-    def onnotification(self, notification: Notification) -> None:
+        try:
+            result = await handler(request)
+            response = {
+                "jsonrpc": "2.0",
+                "id": request.id,
+                "result": result
+            }
+            self.transport.send(response)
+        except Exception as e:
+            error_response = {
+                "jsonrpc": "2.0",
+                "id": request.id,
+                "error": {
+                    "code": -32603,
+                    "message": f"Internal error: {str(e)}"
+                }
+            }
+            self.transport.send(error_response)
+
+    async def onnotification(self, notification: Notification) -> None:
         handler = self.notification_handlers.get(notification.method)
-        if handler:
-            handler(notification)
-        else:
-            self.onerror(Error(f"No handler for notification method: {notification.method}"))
+        if not handler:
+            await self.onerror(Error(code=-32601, message=f"No handler for notification method: {notification.method}"))
+            return
+        
+        try:
+            await handler(notification)
+        except Exception as e:
+            await self.onerror(Error(code=-32603, message=f"Error handling notification: {str(e)}"))
     
     def set_request_handler(self, method: str, handler: callable):
         if method in self.request_handlers:
@@ -56,3 +93,8 @@ class Protocol:
         if method in self.notification_handlers:
             raise Error(f"Notification handler for method '{method}' already exists.")
         self.notification_handlers[method] = handler
+    
+    async def close(self) -> None:
+        """プロトコル接続を閉じる"""
+        if hasattr(self, 'transport') and self.transport:
+            self.transport.close()

@@ -1,5 +1,6 @@
 from server import Server
 import json
+import asyncio
 
 class MCPServer():
     def __init__(self, server_info, options):
@@ -17,7 +18,7 @@ class MCPServer():
         self.server.set_request_handler('tools/list', self.handle_tools_list)
         self.server.set_request_handler('tools/call', self.handle_call_tool)
 
-    def handle_tools_list(self, request) -> None:
+    async def handle_tools_list(self, request) -> None:
         tool_definitions = [tool.definition for tool in self.tools_list.values()]
         result = {
             'tools': tool_definitions
@@ -39,7 +40,11 @@ class MCPServer():
 
         tool = self.tools_list[tool_name]
 
-        output = tool.callback(**tool_params)
+        # コールバックが非同期関数かどうかチェック
+        if asyncio.iscoroutinefunction(tool.callback):
+            output = await tool.callback(**tool_params)
+        else:
+            output = tool.callback(**tool_params)
 
         result = {
             'content': [
@@ -51,3 +56,9 @@ class MCPServer():
             'structuredContent': output
         }
         return result
+
+    def register_tool(self, tool) -> None:
+        if tool.name in self.tools_list:
+            raise ValueError(f"Tool with name '{tool.name}' is already registered.")
+        
+        self.tools_list[tool.name] = tool
