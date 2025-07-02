@@ -121,7 +121,7 @@ send_message "$TOOLS_LIST_MESSAGE" "Tools List Request"
 
 # テスト4: Tool Call リクエスト
 echo "🔧 テスト4: ツール実行"
-TOOL_CALL_MESSAGE='{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"exampleTool","arguments":{"input":"Hello, MCP!"}}}'
+TOOL_CALL_MESSAGE='{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"add_number","arguments":{"a":94, "b":123}}}'
 send_message "$TOOL_CALL_MESSAGE" "Tool Call Request"
 
 # テスト5: 存在しないツールの呼び出し

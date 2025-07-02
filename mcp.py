@@ -20,7 +20,6 @@ class MCPServer:
         self.server.set_request_handler("tools/call", self.handle_call_tool)
 
     async def handle_tools_list(self, request) -> dict:
-        print("handle_tools_list called")
         tool_definitions = [tool.definition for tool in self.tools_list.values()]
         result = {"tools": tool_definitions}
         return result

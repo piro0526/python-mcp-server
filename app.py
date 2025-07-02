@@ -11,15 +11,15 @@ async def main():
     mcp_server = MCPServer(server_info, options)
     mcp_server.set_tool_request_handler()
 
-    example_tool = Tool(
-        name="exampleTool",
-        title="Example Tool",
-        description="An example tool for demonstration purposes.",
-        inputSchema={"type": "object", "properties": {"input": {"type": "string"}}},
-        outputSchema={"type": "object", "properties": {"output": {"type": "string"}}},
-        callback=lambda **kwargs: {"output": f"Processed input: {kwargs.get('input', '')}"},
+    add_tool = Tool(
+        name="add_number",
+        title="add_number",
+        description="Adds two numbers.",
+        inputSchema={"type": "object", "properties": {"a": {"type": "int32"}, "b": {"type": "int32"}}},
+        outputSchema={"type": "object", "properties": {"output": {"type": "int32"}}},
+        callback=lambda **kwargs: {"output": kwargs.get('a', 0) + kwargs.get('b', 0)},
     )
-    mcp_server.register_tool(example_tool)
+    mcp_server.register_tool(add_tool)
     transport = stdio_transport()
     await mcp_server.connect(transport)
 
