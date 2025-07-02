@@ -1,6 +1,6 @@
 import asyncio
 
-from mcp import MCPServer
+from mcp_server import MCPServer
 from mcp_types import Tool
 from transport import stdio_transport
 

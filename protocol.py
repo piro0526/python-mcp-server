@@ -18,8 +18,7 @@ class Protocol:
     async def onerror(self, id, error) -> None:
         pass
 
-    async def onmessage(self, message) -> None:
-        # 辞書からPydanticモデルに変換
+    async def onmessage(self, message: dict) -> None:
         try:
             if "id" in message and "method" in message:
                 await self.onrequest(message)
