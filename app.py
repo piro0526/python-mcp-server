@@ -7,7 +7,7 @@ from transport import stdio_transport
 
 async def main():
     server_info = {"name": "ExampleServer", "title": "Example Server Display Name", "version": "1.0.0"}
-    options = {"capabilities": {"tools": {}}, "instructions": "Optional instructions for the client"}
+    options = {"protocolVersion": "2025-06-18", "capabilities": {"tools": {}}, "instructions": "Optional instructions for the client"}
     mcp_server = MCPServer(server_info, options)
     mcp_server.set_tool_request_handler()
 
