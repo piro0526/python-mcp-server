@@ -1,47 +1,45 @@
-from pydantic import BaseModel
-from typing import Optional, List, Dict, Any, Union
+from typing import Any, Callable, Dict
 
-class Request(BaseModel):
-    jsonrpc: str = "2.0"
-    id: Optional[Union[str, int]] = None
-    method: str
-    params: Optional[Dict[str, Any]] = None
+'''
+def isresponse(message: Dict[str, Any]) -> bool:
+    """メッセージがレスポンスかどうかを判定"""
+    return "id" in message and "result" in message
 
-class Result(BaseModel):
-    pass
 
-class Notification(BaseModel):
-    jsonrpc: str = "2.0"
-    method: str
-    params: Optional[Dict[str, Any]] = None
+def isnotification(message: Dict[str, Any]) -> bool:
+    """メッセージが通知かどうかを判定"""
+    return "method" in message and "params" in message
 
-class Error(BaseModel):
-    code: int
-    message: str
-    data: Optional[Any] = None
 
-class Response(BaseModel):
-    jsonrpc: str = "2.0"
-    id: Optional[Union[str, int]] = None
-    result: Optional[Any] = None
-    error: Optional[Error] = None
+def isrequest(message: Dict[str, Any]) -> bool:
+    """メッセージがリクエストかどうかを判定"""
+    return "method" in message and "id" in message
+
+
+def iserror(message: Dict[str, Any]) -> bool:
+    """メッセージがエラーかどうかを判定"""
+    return "error" in message and "id" in message
+'''
+
 
 class Tool:
-    def __init__(self, name: str, title: str, description: str,
-                 inputSchema: Dict[str, Any], outputSchema: Dict[str, Any],
-                 callback: callable):
+    def __init__(
+        self,
+        name: str,
+        title: str,
+        description: str,
+        inputSchema: Dict[str, Any],
+        outputSchema: Dict[str, Any],
+        callback: Callable,
+    ):
         self.name = name
         self.title = title
         self.description = description
         self.inputSchema = inputSchema
         self.outputSchema = outputSchema
         self.callback = callback
-    
+
     @property
     def definition(self) -> Dict[str, Any]:
         """ツールの定義をMCP形式で返す"""
-        return {
-            "name": self.name,
-            "description": self.description,
-            "inputSchema": self.inputSchema
-        }
+        return {"name": self.name, "description": self.description, "inputSchema": self.inputSchema}

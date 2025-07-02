@@ -1,5 +1,3 @@
-from mcp_types import Error, Request, Response, Notification
-
 class Protocol:
     def __init__(self):
         # self.response_handlers = {}
@@ -17,84 +15,89 @@ class Protocol:
     def onclose(self) -> None:
         pass
 
-    async def onerror(self, error: Error) -> None:
+    async def onerror(self, error) -> None:
         pass
 
     async def onmessage(self, message) -> None:
         # 辞書からPydanticモデルに変換
+        print(f"DEBUG: Received message: {message}")
         try:
             if "id" in message and "method" in message:
-                request = Request(**message)
-                await self.onrequest(request)
+                print(f"Received request: {message}")
+                await self.onrequest(message)
             elif "method" in message:
-                notification = Notification(**message)
-                await self.onnotification(notification)
+                print(f"Received notification: {message}")
+                await self.onnotification(message)
             elif "id" in message:
-                response = Response(**message)
-                await self.onresponse(response)
+                print(f"Received response: {message}")
+                await self.onresponse(message)
             else:
-                await self.onerror(Error(code=-32600, message=f"Invalid message format: {message}"))
+                print(f"Invalid message format: {message}")
+                await self.onerror({"code": -32600, "message": "Invalid request format"})
         except Exception as e:
-            await self.onerror(Error(code=-32700, message=f"Parse error: {e}"))
+            print(f"Error processing message: {e}")
+            import traceback
 
-    async def onresponse(self, response: Response) -> None:
+            traceback.print_exc()
+            await self.onerror({"code": -32700, "message": f"Parse error: {e}"})
+
+    async def onresponse(self, response) -> None:
         pass
 
-    async def onrequest(self, request: Request) -> None:
-        handler = self.request_handlers.get(request.method)
+    async def onrequest(self, request) -> None:
+        method = request.get("method")
+        print(f"Processing request for method: {method}")
+        print(f"Available request handlers: {list(self.request_handlers.keys())}")
+        id = request.get("id")
+        handler = self.request_handlers.get(method)
         if not handler:
             error_response = {
                 "jsonrpc": "2.0",
-                "id": request.id,
-                "error": {
-                    "code": -32601,
-                    "message": f"Method not found: {request.method}"
-                }
+                "id": id,
+                "error": {"code": -32601, "message": f"Method not found: {method}"},
             }
             self.transport.send(error_response)
             return
 
         try:
             result = await handler(request)
-            response = {
-                "jsonrpc": "2.0",
-                "id": request.id,
-                "result": result
-            }
+            response = {"jsonrpc": "2.0", "id": id, "result": result}
             self.transport.send(response)
         except Exception as e:
             error_response = {
                 "jsonrpc": "2.0",
-                "id": request.id,
-                "error": {
-                    "code": -32603,
-                    "message": f"Internal error: {str(e)}"
-                }
+                "id": id,
+                "error": {"code": -32603, "message": f"Internal error: {str(e)}"},
             }
             self.transport.send(error_response)
 
-    async def onnotification(self, notification: Notification) -> None:
-        handler = self.notification_handlers.get(notification.method)
+    async def onnotification(self, notification) -> None:
+        method = notification.get("method")
+        handler = self.notification_handlers.get(method)
         if not handler:
-            await self.onerror(Error(code=-32601, message=f"No handler for notification method: {notification.method}"))
+            error_response = {
+                "jsonrpc": "2.0",
+                "error": {"code": -32601, "message": f"Method not found: {method}"},
+            }
+            self.transport.send(error_response)
             return
-        
-        try:
-            await handler(notification)
-        except Exception as e:
-            await self.onerror(Error(code=-32603, message=f"Error handling notification: {str(e)}"))
-    
-    def set_request_handler(self, method: str, handler: callable):
+        await handler(notification)
+
+    def set_request_handler(self, method: str, handler):
         if method in self.request_handlers:
-            raise Error(f"Request handler for method '{method}' already exists.")
+            # raise Error(f"Request handler for method '{method}' already exists.")
+            return
+        print(f"Registering request handler for method: {method}")
         self.request_handlers[method] = handler
 
-    def set_notification_handler(self, method: str, handler: callable):
+    def set_notification_handler(self, method: str, handler):
         if method in self.notification_handlers:
-            raise Error(f"Notification handler for method '{method}' already exists.")
+            # raise Error(f"Notification handler for method '{method}' already exists.")
+            return
+        print(f"Registering notification handler for method: {method}")
         self.notification_handlers[method] = handler
-    
+
     async def close(self) -> None:
         """プロトコル接続を閉じる"""
-        if hasattr(self, 'transport') and self.transport:
+        if hasattr(self, "transport") and self.transport:
             self.transport.close()

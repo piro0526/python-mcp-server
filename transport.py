@@ -1,7 +1,8 @@
-import sys
-import json
 import asyncio
-from typing import Callable, Optional, Dict
+import json
+import sys
+from typing import Callable, Dict, Optional
+
 
 class transport:
     def __init__(self) -> None:
@@ -18,6 +19,7 @@ class transport:
     def close(self) -> None:
         pass
 
+
 class stdio_transport(transport):
     def __init__(self) -> None:
         super().__init__()
@@ -30,7 +32,7 @@ class stdio_transport(transport):
     def start(self) -> None:
         if self.started:
             return
-        
+
         self.started = True
         # stdin からメッセージを非同期で読み取り開始
         asyncio.create_task(self._read_messages())
@@ -39,25 +41,28 @@ class stdio_transport(transport):
         """標準入力からJSON-RPC メッセージを読み取る"""
         try:
             while not self.closed:
-                line = await asyncio.get_event_loop().run_in_executor(
-                    None, sys.stdin.readline
-                )
-                
+                line = await asyncio.get_event_loop().run_in_executor(None, sys.stdin.readline)
+                print(f"DEBUG Transport: Read line: {repr(line)}", file=sys.stderr, flush=True)
+
                 if not line:  # EOF
+                    print("DEBUG Transport: EOF detected", file=sys.stderr, flush=True)
                     break
-                    
+
                 line = line.strip()
                 if not line:
+                    print("DEBUG Transport: Empty line, skipping", file=sys.stderr, flush=True)
                     continue
-                
+
                 try:
                     message = json.loads(line)
+                    print(f"DEBUG Transport: Parsed message: {message}", file=sys.stderr, flush=True)
                     if self.onmessage:
                         await self.onmessage(message)  # awaitを追加
                 except json.JSONDecodeError as e:
+                    print(f"DEBUG Transport: JSON decode error: {e}", file=sys.stderr, flush=True)
                     if self.onerror:
                         self.onerror(f"JSON decode error: {e}")
-                        
+
         except Exception as e:
             if self.onerror:
                 self.onerror(f"Error reading messages: {e}")
@@ -69,7 +74,7 @@ class stdio_transport(transport):
         """メッセージを標準出力に送信"""
         if self.closed:
             return
-            
+
         try:
             json_message = json.dumps(message, ensure_ascii=False)
             print(json_message, flush=True)
@@ -80,4 +85,4 @@ class stdio_transport(transport):
     def close(self) -> None:
         """トランスポートを閉じる"""
         self.closed = True
-        self.started = False 
+        self.started = False

@@ -30,8 +30,8 @@ trap cleanup EXIT
 mkfifo "$INPUT_FIFO"
 
 echo "📡 MCPサーバーを起動中..."
-# サーバーを起動
-python3 app.py < "$INPUT_FIFO" > "$OUTPUT_FILE" 2>&1 &
+# サーバーを起動（標準出力と標準エラー出力の両方をキャプチャ、unbuffered）
+python3 -u app.py < "$INPUT_FIFO" > "$OUTPUT_FILE" 2>&1 &
 SERVER_PID=$!
 
 # サーバーが起動するのを少し待つ
@@ -40,11 +40,27 @@ sleep 2
 # サーバーが起動しているかチェック
 if ! kill -0 "$SERVER_PID" 2>/dev/null; then
     echo "❌ サーバーの起動に失敗しました"
+    echo "📄 エラー出力:"
     cat "$OUTPUT_FILE"
     exit 1
 fi
 
 echo "✅ サーバーが起動しました (PID: $SERVER_PID)"
+echo "📊 初期出力の確認:"
+sleep 1  # 初期化メッセージを待つ
+if [ -s "$OUTPUT_FILE" ]; then
+    echo "出力ファイルにデータがあります："
+    head -n 5 "$OUTPUT_FILE"
+else
+    echo "まだ出力がありません（正常 - サーバーが入力待機中）"
+fi
+
+# プロセスの状態を確認
+echo "🔍 プロセス状態: $(ps -p $SERVER_PID -o state= 2>/dev/null || echo 'Unknown')"
+echo ""
+
+# FIFOを持続的に開く（バックグラウンドで）
+exec 3>"$INPUT_FIFO"
 
 # メッセージ送信関数
 send_message() {
@@ -54,15 +70,37 @@ send_message() {
     echo "📤 テスト: $test_name"
     echo "送信: $message"
     
-    # メッセージを送信
-    echo "$message" > "$INPUT_FIFO"
+    # 送信前の出力行数を記録
+    local lines_before=$(wc -l < "$OUTPUT_FILE" 2>/dev/null || echo "0")
     
-    # レスポンスを待つ
-    sleep 1
+    # メッセージを送信（ファイルディスクリプタ3を使用）
+    echo "$message" >&3
     
-    # 出力を表示
-    echo "📥 レスポンス:"
-    tail -n 1 "$OUTPUT_FILE" | jq '.' 2>/dev/null || tail -n 1 "$OUTPUT_FILE"
+    # レスポンスを待つ（標準出力の処理時間を考慮）
+    sleep 3
+    
+    # 送信後の出力行数を確認
+    local lines_after=$(wc -l < "$OUTPUT_FILE" 2>/dev/null || echo "0")
+    
+    # 新しい出力があるかチェック
+    if [ "$lines_after" -gt "$lines_before" ]; then
+        echo "📥 レスポンス (新しい出力: $((lines_after - lines_before)) 行):"
+        # 新しい行のみを表示
+        tail -n $((lines_after - lines_before)) "$OUTPUT_FILE" | while read -r line; do
+            if [ -n "$line" ]; then
+                echo "$line" | jq '.' 2>/dev/null || echo "$line"
+            fi
+        done
+    else
+        echo "📥 レスポンス: (新しい出力なし)"
+        echo "現在の出力状況を確認..."
+        if [ -s "$OUTPUT_FILE" ]; then
+            echo "最新の出力:"
+            tail -n 3 "$OUTPUT_FILE"
+        else
+            echo "出力ファイルが空です"
+        fi
+    fi
     echo "---"
 }
 
@@ -96,6 +134,11 @@ echo "🔧 テスト6: 不正なJSONメッセージ（エラーテスト）"
 INVALID_JSON='{"jsonrpc":"2.0","id":5,"method":"tools/call","params":'
 send_message "$INVALID_JSON" "Invalid JSON Message"
 
+# テスト実行中の出力をリアルタイムで表示
+echo "📊 現在の出力状況:"
+echo "出力ファイルサイズ: $(wc -l < "$OUTPUT_FILE") 行"
+echo ""
+
 # 最終的な出力を表示
 echo "📄 全出力内容:"
 echo "=============="
@@ -104,3 +147,6 @@ echo "=============="
 
 echo "✅ テスト完了！"
 echo "💡 ヒント: 各テストのレスポンスを確認して、期待される結果と比較してください。"
+
+# FIFOを閉じる
+exec 3>&-
