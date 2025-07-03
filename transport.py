@@ -75,3 +75,24 @@ class stdio_transport(transport):
         """トランスポートを閉じる"""
         self.closed = True
         self.started = False
+
+
+class http_transport(transport):
+    def __init__(self) -> None:
+        super().__init__()
+        self.session = None
+
+    def start(self) -> None:
+        pass
+
+    async def handle_request(self, request_json) -> None:
+        """HTTPリクエストを処理する"""
+        request = json.loads(request_json)
+        if self.onmessage:
+            await self.onmessage(request)
+
+    def send(self, message) -> None:
+        pass
+
+    def close(self) -> None:
+        pass
