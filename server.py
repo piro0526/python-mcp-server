@@ -16,7 +16,12 @@ class Server(Protocol):
         params = request.get("params", {})
         self.instructions = params.get("instructions", "")
 
-        result = {"protocolVersion": self.protocol_version, "capabilities": self.capabilities, "serverInfo": self.server_info, "instructions": self.instructions}
+        result = {
+            "protocolVersion": self.protocol_version,
+            "capabilities": self.capabilities,
+            "serverInfo": self.server_info,
+            "instructions": self.instructions,
+        }
         return result
 
     async def oninitialized(self, notification) -> None:

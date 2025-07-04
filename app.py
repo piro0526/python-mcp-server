@@ -1,25 +1,28 @@
 import asyncio
 
+from example_tools import add_tool, divide_tool, multiply_tool, subtract_tool
 from mcp_server import MCPServer
-from mcp_types import Tool
 from transport import stdio_transport
 
 
 async def main():
-    server_info = {"name": "ExampleServer", "title": "Example Server Display Name", "version": "1.0.0"}
-    options = {"protocolVersion": "2025-06-18", "capabilities": {"tools": {}}, "instructions": "Optional instructions for the client"}
+    server_info = {
+        "name": "ExampleServer",
+        "title": "Example Server Display Name",
+        "version": "1.0.0",
+    }
+    options = {
+        "protocolVersion": "2024-11-05",
+        "capabilities": {"tools": {}},
+        "instructions": "Optional instructions for the client",
+    }
     mcp_server = MCPServer(server_info, options)
     mcp_server.set_tool_request_handler()
 
-    add_tool = Tool(
-        name="add_number",
-        title="add_number",
-        description="Adds two numbers.",
-        inputSchema={"type": "object", "properties": {"a": {"type": "int32"}, "b": {"type": "int32"}}},
-        outputSchema={"type": "object", "properties": {"output": {"type": "int32"}}},
-        callback=lambda **kwargs: {"output": kwargs.get('a', 0) + kwargs.get('b', 0)},
-    )
     mcp_server.register_tool(add_tool)
+    mcp_server.register_tool(subtract_tool)
+    mcp_server.register_tool(multiply_tool)
+    mcp_server.register_tool(divide_tool)
     transport = stdio_transport()
     await mcp_server.connect(transport)
 

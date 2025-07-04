@@ -45,7 +45,7 @@ class MCPServer:
         return result
 
     def register_tool(self, tool) -> None:
-        if tool.name in self.tools_list:
-            raise ValueError(f"Tool with name '{tool.name}' is already registered.")
+        if tool.definition.get("name") in self.tools_list:
+            raise ValueError(f"Tool with name '{tool.definition.get('name')}' is already registered.")
 
-        self.tools_list[tool.name] = tool
+        self.tools_list[tool.definition.get("name")] = tool
